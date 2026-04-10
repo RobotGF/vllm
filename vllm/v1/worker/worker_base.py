@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import socket
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -76,6 +77,7 @@ class WorkerBase:
         self.local_rank = local_rank
         self.rank = rank
         self.distributed_init_method = distributed_init_method
+        self.distributed_listen_socket: socket.socket | None = None
         self.is_driver_worker = is_driver_worker
 
         # Device and model state
