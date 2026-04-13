@@ -154,9 +154,7 @@ def create_distributed_init_endpoint(
     listen_socket.bind((host, 0))
     listen_socket.listen()
     return DistributedInitEndpoint(
-        init_method=get_distributed_init_method(
-            host, listen_socket.getsockname()[1]
-        ),
+        init_method=get_distributed_init_method(host, listen_socket.getsockname()[1]),
         listen_socket=listen_socket,
     )
 

@@ -96,7 +96,9 @@ def test_init_distributed_environment_closes_unused_reserved_socket(monkeypatch)
     config_stub = ModuleType("vllm.config")
     config_stub.get_current_vllm_config_or_none = lambda: None
     monkeypatch.setitem(sys.modules, "vllm.config", config_stub)
-    monkeypatch.setattr(parallel_state.torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        parallel_state.torch.distributed, "is_initialized", lambda: True
+    )
     monkeypatch.setattr(
         parallel_state,
         "_WORLD",
