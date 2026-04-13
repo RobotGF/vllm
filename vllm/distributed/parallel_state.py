@@ -1362,24 +1362,23 @@ def _init_process_group_with_optional_listen_socket(
         "rank": rank,
         "timeout": timeout,
     }
-    if distributed_listen_socket is None:
+    if dist_init_host_port is None:
         torch.distributed.init_process_group(
             init_method=distributed_init_method,
             **process_group_kwargs,
         )
         return dist_init_host_port
 
-    assert dist_init_host_port is not None, (
-        "distributed_listen_socket requires a tcp:// init method"
-    )
     host, port = dist_init_host_port
     store_kwargs: dict[str, Any] = {
-        "listen_socket": distributed_listen_socket,
         "world_size": world_size,
-        "is_master": True,
+        "is_master": rank == 0,
     }
     if timeout is not None:
         store_kwargs["timeout"] = timeout
+    if distributed_listen_socket is not None:
+        assert rank == 0, "Only rank 0 may own the distributed listen socket"
+        store_kwargs["listen_socket"] = distributed_listen_socket
     store = create_tcp_store(host, port, **store_kwargs)
     torch.distributed.init_process_group(
         store=store,

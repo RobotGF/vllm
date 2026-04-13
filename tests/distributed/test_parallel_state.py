@@ -121,3 +121,78 @@ def test_init_distributed_environment_closes_unused_reserved_socket(monkeypatch)
     )
 
     assert listen_socket.fileno() == -1
+
+
+def test_init_distributed_environment_uses_tcp_store_for_nonzero_ranks(monkeypatch):
+    init_process_group_calls: list[dict] = []
+    store_calls: list[dict] = []
+    store = object()
+
+    config_stub = ModuleType("vllm.config")
+    config_stub.get_current_vllm_config_or_none = lambda: None
+    monkeypatch.setitem(sys.modules, "vllm.config", config_stub)
+    monkeypatch.setattr(parallel_state, "_WORLD", None)
+    monkeypatch.setattr(
+        parallel_state.torch.distributed, "is_initialized", lambda: False
+    )
+    monkeypatch.setattr(
+        parallel_state.torch.distributed,
+        "is_backend_available",
+        lambda backend: True,
+    )
+    monkeypatch.setattr(
+        parallel_state.torch.distributed,
+        "init_process_group",
+        lambda **kwargs: init_process_group_calls.append(kwargs),
+    )
+    monkeypatch.setattr(
+        parallel_state.torch.distributed,
+        "get_world_size",
+        lambda: 2,
+    )
+    monkeypatch.setattr(
+        parallel_state,
+        "init_world_group",
+        lambda ranks, local_rank, backend: SimpleNamespace(cpu_group=object()),
+    )
+    monkeypatch.setattr(parallel_state, "_node_count", lambda group: 1)
+
+    def fake_create_tcp_store(host: str, port: int, **kwargs):
+        store_calls.append(
+            {
+                "host": host,
+                "port": port,
+                **kwargs,
+            }
+        )
+        return store
+
+    monkeypatch.setattr(parallel_state, "create_tcp_store", fake_create_tcp_store)
+
+    distributed_init_method = get_distributed_init_method("127.0.0.1", 23456)
+
+    parallel_state.init_distributed_environment(
+        world_size=2,
+        rank=1,
+        distributed_init_method=distributed_init_method,
+        local_rank=1,
+        backend="gloo",
+    )
+
+    assert store_calls == [
+        {
+            "host": "127.0.0.1",
+            "port": 23456,
+            "world_size": 2,
+            "is_master": False,
+        }
+    ]
+    assert init_process_group_calls == [
+        {
+            "backend": "gloo",
+            "store": store,
+            "world_size": 2,
+            "rank": 1,
+            "timeout": None,
+        }
+    ]
